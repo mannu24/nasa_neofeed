@@ -107,35 +107,65 @@
                   this.size_data= null
                 $('#dailycount').remove();
                   this.rdata= []
-                  await axios.get('/api/feeds/'+this.startdate+'/'+this.lastdate).then( (response) =>{
-                        console.log(response.data);
-                        if(response.data.status == 'success'){
-                            toast.fire({
-                                'icon': 'success',
-                                'title': 'Results Fetched Successfully',
-                            });
-                            this.chartlabels = response.data.chart_labels
-                            this.chartcount = response.data.chart_values
-                            this.close_data = response.data.close_data
-                            this.speed_data = response.data.speed_data
-                            this.size_data = response.data.size_data
-                            this.show_chart()  
-                        }else if(response.data.status == 'date_error'){
-                             toast.fire({
-                                'icon': 'warning',
-                                'title': response.data.message,
-                            });
+                  await axios.get('https://api.nasa.gov/neo/rest/v1/feed?start_date='+this.startdate+'&end_date='+this.lastdate+'&api_key=S2ryrklixpIFQ6no0RSN1jWGpIDjv2gT7hA0TvHF').then( async(response) =>{
+                        if(response.data.element_count){
+                            console.log(response.data.element_count);
+                            this.rdata = Object.entries(response.data.near_earth_objects) ;
+                            this.rdata.sort();
+                            console.log(this.rdata.sort());
+                            let close_el = null
+                            let current_el = null
+                            this.rdata.forEach(item => {
+                                this.chartlabels.push(item[0])
+                                this.chartcount.push(item[1].length)
+                                item[1].forEach(element => {
+                                //  Calculating Close Asteroid
+                                current_el =  {
+                                    'distance': parseFloat(element.close_approach_data[0].miss_distance.kilometers).toFixed(2),'speed': parseFloat(element.close_approach_data[0].relative_velocity.kilometers_per_hour).   toFixed(2),
+                                    'id': element.id,
+                                    'diameter': ((element.estimated_diameter.kilometers.estimated_diameter_max) + (element.estimated_diameter.kilometers.estimated_diameter_max))/2
+                                    }
+                                if(this.close_data ==null){
+                                  this.close_data =  {'distance': parseFloat(element.close_approach_data[0].miss_distance.kilometers).toFixed(2),'id': element.id}
+                                }else{
+                                    if(current_el.distance < this.close_data.distance){
+                                        this.close_data = current_el
+                                    }
+                                }
+
+                                //  Calculating Fastest Asteroid
+                                if(this.speed_data ==null){
+                                  this.speed_data =  {'speed': parseFloat(element.close_approach_data[0].relative_velocity.kilometers_per_hour).toFixed(2),'id': element.id}
+                                }else{
+                                    if(current_el.speed > this.speed_data.speed){
+                                        this.speed_data = current_el
+                                    }
+                                }
+
+                                //Calculating Avg Size
+                                if(this.size_data ==null){
+                                  this.size_data =  {'diameter': parseFloat(((element.estimated_diameter.kilometers.estimated_diameter_max) + (element.estimated_diameter.kilometers.estimated_diameter_max))/2).toFixed(2),'id': element.id}
+                                }else{
+                                    if(current_el.diameter > this.size_data.diameter){
+                                        this.size_data = current_el
+                                    }
+                                }
+                                
+
+                                })
+
+                            }); 
+                            this.show_chart()                          
                         }
                         this.$Progress.finish();
                     })
                     .catch((error)=>{
-                        console.log(error);
                         toast.fire({
-                            'icon': 'error',
-                            'title': 'Server Error',
+                            'icon': 'info',
+                            'title': 'Maximum Days Allowed is 7',
                         });
 
-                    });
+                    })
 
                 }
                 else{
